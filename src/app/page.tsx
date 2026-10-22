@@ -1,69 +1,169 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useRef, useState, type FormEvent } from "react";
+
+// Same track as pplx.surajgaud.com — swap for any YouTube video ID.
+const YT_VIDEO_ID = "tRsQsTMvPNg";
+
+type YTPlayer = {
+  playVideo: () => void;
+  pauseVideo: () => void;
+  setVolume: (v: number) => void;
+  destroy?: () => void;
+};
+
+declare global {
+  interface Window {
+    YT?: {
+      Player: new (
+        el: HTMLElement | string,
+        opts: Record<string, unknown>,
+      ) => YTPlayer;
+    };
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
 
 export default function Home() {
+  const [query, setQuery] = useState("");
+  const [playing, setPlaying] = useState(false);
+  const [playerReady, setPlayerReady] = useState(false);
+  const playerRef = useRef<YTPlayer | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!document.getElementById("yt-api")) {
+      const tag = document.createElement("script");
+      tag.id = "yt-api";
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.body.appendChild(tag);
+    }
+
+    const init = () => {
+      if (!containerRef.current || !window.YT) return;
+      playerRef.current = new window.YT.Player(containerRef.current, {
+        height: "0",
+        width: "0",
+        videoId: YT_VIDEO_ID,
+        playerVars: {
+          autoplay: 0,
+          controls: 0,
+          disablekb: 1,
+          loop: 1,
+          playlist: YT_VIDEO_ID,
+        },
+        events: {
+          onReady: () => setPlayerReady(true),
+        },
+      });
+    };
+
+    if (window.YT?.Player) {
+      init();
+    } else {
+      window.onYouTubeIframeAPIReady = init;
+    }
+
+    return () => {
+      playerRef.current?.destroy?.();
+    };
+  }, []);
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    const q = query.trim();
+    if (!q) return;
+    window.location.href = `https://www.perplexity.ai/search/new?q=${encodeURIComponent(q)}`;
+  };
+
+  const togglePlay = () => {
+    const p = playerRef.current;
+    if (!p || !playerReady) return;
+    if (playing) {
+      p.pauseVideo();
+      setPlaying(false);
+    } else {
+      p.setVolume(50);
+      p.playVideo();
+      setPlaying(true);
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="crt-screen flex flex-col">
+      {/* Logo top-left */}
+      <div className="relative z-10 p-8 sm:p-12">
+        <h1
+          className="crt-text text-5xl sm:text-7xl font-bold tracking-tight"
+          style={{ filter: "blur(0.4px)" }}
+        >
+          pplx.fm
+        </h1>
+      </div>
+
+      {/* Play / Pause top-right */}
+      <button
+        type="button"
+        onClick={togglePlay}
+        disabled={!playerReady}
+        aria-label={playing ? "Pause music" : "Play music"}
+        className="absolute top-8 right-8 sm:top-12 sm:right-12 z-10 crt-text border-2 border-current rounded-md w-10 h-10 flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-40"
+      >
+        <span className="text-xl leading-none">
+          {playing ? "❚❚" : "▶"}
+        </span>
+      </button>
+
+      {/* Hidden YouTube player */}
+      <div
+        ref={containerRef}
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: "-9999px",
+          left: "-9999px",
+          width: 0,
+          height: 0,
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Center form */}
+      <div className="flex-1 flex items-center justify-center px-6 relative z-10">
+        <form
+          onSubmit={handleSubmit}
+          className="flex items-center gap-4 w-full max-w-2xl"
+        >
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Whats on your mind?"
+            autoFocus
+            className="crt-input flex-1 text-2xl sm:text-3xl text-center"
+          />
+          <button type="submit" className="crt-btn px-4 py-1 text-xl font-bold">
+            GO
+          </button>
+        </form>
+      </div>
+
+      {/* Footer */}
+      <div className="relative z-10 flex justify-between items-end p-6 sm:p-8 text-sm sm:text-base">
+        <span className="crt-text opacity-80">Hosted on Vercel</span>
+        <span className="crt-text opacity-80">
+          Ideated with V0 by rishabh
+        </span>
+      </div>
+
+      {/* CRT overlays — on top of content */}
+      <div className="crt-noise" aria-hidden />
+      <div className="crt-scanlines" aria-hidden />
+      <div className="crt-vignette" aria-hidden />
+
+      {/* Boot sequence — runs once on mount */}
+      <div className="crt-boot" aria-hidden />
+    </main>
   );
 }
